@@ -97,7 +97,7 @@ export function registerConfigCommand(
 async function configMenu(ctx: ExtensionCommandContext, config: LoopGuardConfig): Promise<void> {
   const fields = Object.keys(FIELD_DESCRIPTIONS) as (keyof LoopGuardConfig)[];
 
-  const choices = fields.map((f) => `${f} = ${config[f]}`);
+  const choices = fields.map((f) => `${f} (${config[f]}) — ${FIELD_DESCRIPTIONS[f]}`);
 
   const selected = await ctx.ui.select(
     "loop-guard: pick a setting to edit",
@@ -112,7 +112,7 @@ async function configMenu(ctx: ExtensionCommandContext, config: LoopGuardConfig)
   const description = FIELD_DESCRIPTIONS[field];
 
   const prompt = `${description}\nCurrent: ${currentValue}`;
-  const newValue = await ctx.ui.input("loop-guard: new value", prompt);
+  const newValue = await ctx.ui.input(`loop-guard: new value for ${field}`, prompt);
 
   if (newValue === null) return;
 
