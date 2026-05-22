@@ -1,4 +1,4 @@
-# LoopGuard — Implementation Plan
+# loop-guard — Implementation Plan
 
 > Pi extension that detects and prevents LLM loops in both tool calls and thinking/reasoning, with progressive escalation.
 
@@ -379,7 +379,7 @@ You must try a fundamentally different approach or conclude with the information
 
 **Termination message**:
 ```
-🛑 Agent terminated: LoopGuard detected persistent looping behavior after N attempts.
+🛑 Agent terminated: loop-guard detected persistent looping behavior after N attempts.
 Summary: [details of what was looping]
 ```
 
@@ -434,7 +434,7 @@ export default function (pi: ExtensionAPI) {
     const action = escalation.getPendingAction();
     if (action?.level === "terminate") {
       ctx.ui.notify("loop-guard: terminating agent due to persistent loops", "error");
-      return { block: true, reason: "LoopGuard: agent terminated due to persistent looping" };
+      return { block: true, reason: "loop-guard: agent terminated due to persistent looping" };
     }
 
     // Check for tool call loops
