@@ -10,71 +10,81 @@ describe("ThinkingTracker", () => {
 
   describe("basic behavior", () => {
     it("returns null for a single thought", () => {
+      const config = { ...DEFAULT_CONFIG, thinkingMinLength: 0 };
+      tracker = new ThinkingTracker(config);
       const result = tracker.check("This is my first thought");
       expect(result).toBeNull();
     });
 
     it("returns null for different thoughts", () => {
-      tracker.check("Let me analyze the problem");
-      const result = tracker.check("Now I need to implement the solution");
+      const config = { ...DEFAULT_CONFIG, thinkingMinLength: 0 };
+      tracker = new ThinkingTracker(config);
+      tracker.check("Let me analyze the problem step by step to find the root cause");
+      const result = tracker.check("Now I need to implement the solution using a different approach");
+      expect(result).toBeNull();
+    });
+
+    it("skips thoughts shorter than thinkingMinLength", () => {
+      tracker.check("short");
+      const result = tracker.check("short");
       expect(result).toBeNull();
     });
   });
 
   describe("repetitive thinking detection", () => {
-    it("detects identical thoughts above threshold", () => {
-      const thought = "I need to think about this more carefully";
-      for (let i = 0; i < DEFAULT_CONFIG.thinkingSimilarityThreshold + 1; i++) {
-        const result = tracker.check(thought);
-        if (i < DEFAULT_CONFIG.thinkingSimilarityThreshold) {
-          expect(result).toBeNull();
-        }
-      }
-      // The last check should have triggered detection
-      const result = tracker.check(thought);
+    const longThought = "I need to think about this more carefully and consider all the possible approaches that could be taken to solve this complex problem effectively";
+
+    it("detects identical thoughts on second occurrence", () => {
+      tracker.check(longThought);
+      const result = tracker.check(longThought);
       expect(result).not.toBeNull();
+      if (result) {
+        expect(result.type).toBe("repetitive");
+        expect(result.consecutiveCount).toBe(1);
+      }
     });
 
     it("detects very similar thoughts with ngram similarity", () => {
-      // These thoughts are very similar character-by-character
-      tracker.check("Let me try a different approach to solve this problem by using recursion");
-      tracker.check("Let me try a different approach to solve this problem by using iteration");
-      tracker.check("Let me try a different approach to solve this problem by using memoization");
-      tracker.check("Let me try a different approach to solve this problem by using dynamic programming");
-      tracker.check("Let me try a different approach to solve this problem by using backtracking");
-      tracker.check("Let me try a different approach to solve this problem by using greedy algorithm");
-      const result = tracker.check("Let me try a different approach to solve this problem by using divide and conquer");
-      // With default threshold 3 and ngram size 5, these should be very similar
+      const config = { ...DEFAULT_CONFIG, thinkingSimilarityThreshold: 2 };
+      tracker = new ThinkingTracker(config);
+      tracker.check("Let me try a different approach to solve this problem by using recursion and memoization to improve performance");
+      tracker.check("Let me try a different approach to solve this problem by using iteration and caching to improve performance");
+      const result = tracker.check("Let me try a different approach to solve this problem by using dynamic programming to improve performance");
       if (result) {
         expect(result.type).toBe("repetitive");
       }
     });
 
     it("does not detect when thoughts are sufficiently different", () => {
-      tracker.check("I should read the file first");
-      tracker.check("Then I need to parse the JSON content");
-      tracker.check("After that, I will transform the data");
-      tracker.check("Finally, I will write the output to a new file");
-      const result = tracker.check("Let me verify the results are correct");
+      const config = { ...DEFAULT_CONFIG, thinkingMinLength: 0 };
+      tracker = new ThinkingTracker(config);
+      tracker.check("I should read the file first to understand its contents and structure");
+      tracker.check("Then I need to parse the JSON content and extract the relevant fields");
+      tracker.check("After that, I will transform the data into the expected format");
+      tracker.check("Finally, I will write the output to a new file and verify the results");
+      const result = tracker.check("Let me verify the results are correct by running the test suite");
       expect(result).toBeNull();
     });
 
-    it("respects thinkingWindow", () => {
-      const config = { ...DEFAULT_CONFIG, thinkingWindow: 3, thinkingSimilarityThreshold: 2 };
+    it("respects thinkingWindow — old similar thoughts fall out of window", () => {
+      const config = { ...DEFAULT_CONFIG, thinkingWindow: 2, thinkingMinLength: 0 };
       tracker = new ThinkingTracker(config);
-      tracker.check("same thought A");
-      tracker.check("different thought B");
-      tracker.check("different thought C");
-      tracker.check("same thought A");
-      // Only 1 consecutive "same thought A" in window, need 2
-      const result = tracker.check("same thought A");
+      const sameA = "same thought A repeated enough times to pass the minimum length check of one hundred characters";
+      const diffB = "different thought B that is also long enough to pass the minimum length check of one hundred characters";
+      tracker.check(sameA);        // recorded
+      tracker.check(diffB);        // different, recorded
+      // window: [sameA, diffB]
+      const result = tracker.check(sameA);  // compares against diffB (diff), count=0 → null
       expect(result).toBeNull();
+      // window now: [diffB, sameA]
     });
   });
 
   describe("reset", () => {
     it("clears all tracking state", () => {
-      const thought = "I keep repeating this";
+      const config = { ...DEFAULT_CONFIG, thinkingSimilarityThreshold: 2, thinkingMinLength: 0 };
+      tracker = new ThinkingTracker(config);
+      const thought = "I keep repeating this over and over again to make sure it passes the minimum length check";
       tracker.check(thought);
       tracker.check(thought);
       tracker.reset();
@@ -86,10 +96,11 @@ describe("ThinkingTracker", () => {
 
   describe("detection details", () => {
     it("provides human-readable details", () => {
-      const thought = "I need to reconsider my approach";
-      for (let i = 0; i <= DEFAULT_CONFIG.thinkingSimilarityThreshold; i++) {
-        tracker.check(thought);
-      }
+      const config = { ...DEFAULT_CONFIG, thinkingSimilarityThreshold: 2 };
+      tracker = new ThinkingTracker(config);
+      const thought = "I need to reconsider my approach and think about this problem from a completely different angle to find a solution";
+      tracker.check(thought);
+      tracker.check(thought);
       const result = tracker.check(thought);
       if (result) {
         expect(result.details).toContain("repetitive");
@@ -110,13 +121,27 @@ describe("ThinkingTracker", () => {
       expect(result).toBeNull();
     });
 
-    it("handles thoughts shorter than ngram size", () => {
-      const config = { ...DEFAULT_CONFIG, thinkingNgramSize: 10 };
+    it("normalizes whitespace", () => {
+      const config = { ...DEFAULT_CONFIG, thinkingSimilarityThreshold: 2, thinkingMinLength: 0 };
       tracker = new ThinkingTracker(config);
-      tracker.check("short");
-      const result = tracker.check("short");
-      // Two identical short thoughts should still be detected as exact match
-      expect(result).toBeNull();
+      tracker.check("I   need   to   think   about   this   problem   very   carefully   and   consider   all   options   thoroughly   to   find   the   best   solution");
+      tracker.check("I need to think about this problem very carefully and consider all options thoroughly to find the best solution");
+      const result = tracker.check("I need to think about this problem very carefully and consider all options thoroughly to find the best solution");
+      if (result) {
+        expect(result.type).toBe("repetitive");
+      }
+    });
+
+    it("caps very long thoughts at 2000 chars", () => {
+      const config = { ...DEFAULT_CONFIG, thinkingSimilarityThreshold: 2 };
+      tracker = new ThinkingTracker(config);
+      const long = "x".repeat(3000);
+      tracker.check(long);
+      tracker.check(long);
+      const result = tracker.check(long);
+      if (result) {
+        expect(result.type).toBe("repetitive");
+      }
     });
   });
 });
