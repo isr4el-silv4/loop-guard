@@ -63,6 +63,87 @@ describe("registerConfigCommand", () => {
   });
 });
 
+describe("configMenu ESC handling", () => {
+  it("exits without changes when select returns empty string", async () => {
+    const config = cloneConfig(DEFAULT_CONFIG);
+
+    const ctx = {
+      ui: {
+        select: jest.fn().mockResolvedValue(""),
+        input: jest.fn(),
+        notify: jest.fn(),
+      },
+    } as unknown as ExtensionCommandContext;
+
+    const pi = {
+      registerCommand: (_name: string, opts: { handler?: Function }) => {
+        (ctx as any)._handler = opts?.handler;
+      },
+    } as unknown as ExtensionAPI;
+
+    registerConfigCommand(pi, config);
+    await (ctx as any)._handler!("config", ctx);
+
+    expect(ctx.ui.input).not.toHaveBeenCalled();
+    expect(config.toolCallWindow).toBe(5); // unchanged
+  });
+
+  it("exits without changes when select returns null", async () => {
+    const config = cloneConfig(DEFAULT_CONFIG);
+    const notifySpy = jest.fn();
+
+    const ctx = {
+      ui: {
+        select: jest.fn().mockResolvedValue(null),
+        input: jest.fn(),
+        notify: notifySpy,
+      },
+    } as unknown as ExtensionCommandContext;
+
+    const pi = {
+      registerCommand: (_name: string, opts: { handler?: Function }) => {
+        // capture handler
+        (ctx as any)._handler = opts?.handler;
+      },
+    } as unknown as ExtensionAPI;
+
+    registerConfigCommand(pi, config);
+    await (ctx as any)._handler!("config", ctx);
+
+    expect(ctx.ui.select).toHaveBeenCalledWith(
+      "loop-guard: pick a setting to edit",
+      expect.any(Array),
+    );
+    expect(ctx.ui.input).not.toHaveBeenCalled();
+    expect(config.toolCallWindow).toBe(5); // unchanged
+  });
+
+  it("exits without changes when input returns null", async () => {
+    const config = cloneConfig(DEFAULT_CONFIG);
+    const notifySpy = jest.fn();
+
+    const ctx = {
+      ui: {
+        select: jest.fn().mockResolvedValue("toolCallWindow (5) — Number of recent tool calls to scan for repeats"),
+        input: jest.fn().mockResolvedValue(null),
+        notify: notifySpy,
+      },
+    } as unknown as ExtensionCommandContext;
+
+    const pi = {
+      registerCommand: (_name: string, opts: { handler?: Function }) => {
+        (ctx as any)._handler = opts?.handler;
+      },
+    } as unknown as ExtensionAPI;
+
+    registerConfigCommand(pi, config);
+    await (ctx as any)._handler!("config", ctx);
+
+    expect(ctx.ui.input).toHaveBeenCalled();
+    expect(config.toolCallWindow).toBe(5); // unchanged
+  });
+});
+
 describe("cloneConfig", () => {
   it("produces a deep copy", () => {
     const clone = cloneConfig(DEFAULT_CONFIG);

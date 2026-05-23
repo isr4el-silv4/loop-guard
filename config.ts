@@ -137,6 +137,8 @@ async function configMenu(ctx: ExtensionCommandContext, config: LoopGuardConfig)
   if (selected === null) return;
 
   const index = choices.indexOf(selected);
+  if (index === -1) return;
+
   const field = fields[index];
   const currentValue = config[field];
   const description = FIELD_DESCRIPTIONS[field];
