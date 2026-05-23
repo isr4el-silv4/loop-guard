@@ -33,6 +33,36 @@ export default function (pi: ExtensionAPI) {
     ctx.ui.notify("loop-guard: active", "info");
   });
 
+  // ── Streaming Loop Detection (Plan 04) ──
+
+  // Full reset on new prompt
+  pi.on("agent_start", async (_event: unknown, _ctx: ExtensionContext) => {
+    thinkingTracker.reset();
+  });
+
+  // Reset per-message state on assistant message start
+  pi.on("message_start", async (event: { message: unknown }, _ctx: ExtensionContext) => {
+    if (typeof event.message !== "object" || event.message === null) return;
+    const message = event.message as Record<string, unknown>;
+    if (message.role !== "assistant") return;
+    thinkingTracker.resetMessage();
+  });
+
+  // Streaming detection: thinking_delta and thinking_end
+  pi.on("message_update", async (event: unknown, ctx: ExtensionContext) => {
+    const e = event as { assistantMessageEvent?: { type?: string; delta?: string } };
+    if (!e.assistantMessageEvent) return;
+    const type = e.assistantMessageEvent.type;
+
+    if (type === "thinking_delta") {
+      thinkingTracker.onChunk(e.assistantMessageEvent.delta ?? "", ctx);
+    }
+
+    if (type === "thinking_end") {
+      thinkingTracker.onThinkingEnd(ctx);
+    }
+  });
+
   pi.on("before_agent_start", async (event: { systemPrompt: string }, _ctx: ExtensionContext) => {
     const hint = escalation.getSystemPromptHint();
     if (hint) {

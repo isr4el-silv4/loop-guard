@@ -22,6 +22,14 @@ export interface LoopGuardConfig {
   // ── Result Stagnation ──
   resultStagnationThreshold: number;
 
+  // ── Streaming Loop Detection ──
+  consecutiveThreshold: number;
+  densityThreshold: number;
+  densityWindow: number;
+  lineSimilarityThreshold: number;
+  maxBufferSize: number;
+  escalationTurns: number;
+
   // ── Escalation ──
   hintAfter: number;
   blockAfter: number;
@@ -45,6 +53,12 @@ const FIELD_DESCRIPTIONS: Record<keyof LoopGuardConfig, string> = {
   thinkingSimilarityThreshold: "N-gram similarity threshold (0.0–1.0)",
   thinkingMinLength: "Minimum characters in a thinking block to analyze (shorter blocks are skipped)",
   resultStagnationThreshold: "Consecutive identical results from the same tool before flagging stagnation",
+  consecutiveThreshold: "Consecutive similar lines to trigger streaming loop detection",
+  densityThreshold: "Repetition density (0.0–1.0) to trigger streaming loop detection",
+  densityWindow: "Sliding window size (last N lines) for density calculation",
+  lineSimilarityThreshold: "N-gram similarity threshold for near-identical lines (0.0–1.0)",
+  maxBufferSize: "Chunk accumulation buffer cap in bytes",
+  escalationTurns: "Number of loop detections within a prompt before aborting",
   hintAfter: "Number of loop detections before injecting a system prompt hint",
   blockAfter: "Number of loop detections before blocking the tool call",
   blockBeforeTerminate: "Number of blocked calls (after blocking starts) before terminating the agent",
@@ -65,6 +79,12 @@ export const DEFAULT_CONFIG: LoopGuardConfig = {
   thinkingSimilarityThreshold: 0.8,
   thinkingMinLength: 100,
   resultStagnationThreshold: 3,
+  consecutiveThreshold: 4,
+  densityThreshold: 0.75,
+  densityWindow: 100,
+  lineSimilarityThreshold: 0.85,
+  maxBufferSize: 10240,
+  escalationTurns: 2,
   hintAfter: 1,
   blockAfter: 2,
   blockBeforeTerminate: 3,
