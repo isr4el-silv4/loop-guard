@@ -128,6 +128,21 @@ describe("EscalationManager", () => {
     });
   });
 
+  describe("terminate message includes reset hint", () => {
+    it("includes /loop-guard reset instruction in terminate reason", () => {
+      const config = { ...DEFAULT_CONFIG, hintAfter: 1, blockAfter: 2, blockBeforeTerminate: 2 };
+      mgr = new EscalationManager(config);
+      mgr.record({ type: "exact", toolName: "read", consecutiveCount: 2, details: "d1" });
+      mgr.record({ type: "exact", toolName: "read", consecutiveCount: 2, details: "d2" });
+      mgr.record({ type: "exact", toolName: "read", consecutiveCount: 2, details: "d3" });
+      const action = mgr.record({ type: "exact", toolName: "read", consecutiveCount: 2, details: "d4" });
+      expect(action.level).toBe("terminate");
+      if (action.level === "terminate") {
+        expect(action.reason).toContain("/loop-guard reset");
+      }
+    });
+  });
+
   describe("handles different detection types", () => {
     it("handles tool loop detection", () => {
       const detection: ToolLoopDetection = {

@@ -25,7 +25,7 @@ interface ToolCallSignature {
  */
 export class ToolTracker {
   private recentCalls: ToolCallSignature[] = [];
-  private toolNameSequence: string[] = [];
+  private toolNameSequence: ToolCallSignature[] = [];
 
   constructor(private config: LoopGuardConfig) {}
 
@@ -45,11 +45,11 @@ export class ToolTracker {
     if (fuzzy) return fuzzy;
 
     // Check cycle
-    const cycle = this.checkCycle(toolName);
+    const cycle = this.checkCycle(signature);
     if (cycle) return cycle;
 
     // No loop detected — record the call
-    this.recordCall(signature, toolName);
+    this.recordCall(signature);
     return null;
   }
 
@@ -82,13 +82,13 @@ export class ToolTracker {
     return result;
   }
 
-  private recordCall(signature: ToolCallSignature, toolName: string): void {
+  private recordCall(signature: ToolCallSignature): void {
     this.recentCalls.push(signature);
     // Trim to window size
     if (this.recentCalls.length > this.config.toolCallWindow) {
       this.recentCalls = this.recentCalls.slice(-this.config.toolCallWindow);
     }
-    this.toolNameSequence.push(toolName);
+    this.toolNameSequence.push(signature);
   }
 
   private checkExactRepeat(signature: ToolCallSignature): ToolLoopDetection | null {
@@ -159,21 +159,21 @@ export class ToolTracker {
     return parts.join(" ");
   }
 
-  private checkCycle(toolName: string): ToolLoopDetection | null {
-    // We need at least cycleLength * cycleRepetitions entries to detect a cycle
+  private checkCycle(signature: ToolCallSignature): ToolLoopDetection | null {
     const needed = this.config.cycleLength * this.config.cycleRepetitions;
-    const sequence = [...this.toolNameSequence, toolName];
+    const sequence = [...this.toolNameSequence, signature];
 
     if (sequence.length < needed) return null;
 
     const tail = sequence.slice(-needed);
-    const pattern = tail.slice(0, this.config.cycleLength);
+    const nameTail = tail.map((s) => s.toolName);
+    const namePattern = nameTail.slice(0, this.config.cycleLength);
 
-    // Check if the tail forms a repeating pattern
+    // Phase 1: Shape detection (tool names only)
     let isCycle = true;
     for (let rep = 1; rep < this.config.cycleRepetitions; rep++) {
       for (let i = 0; i < this.config.cycleLength; i++) {
-        if (tail[rep * this.config.cycleLength + i] !== pattern[i]) {
+        if (nameTail[rep * this.config.cycleLength + i] !== namePattern[i]) {
           isCycle = false;
           break;
         }
@@ -181,15 +181,33 @@ export class ToolTracker {
       if (!isCycle) break;
     }
 
-    if (isCycle) {
-      return {
-        type: "cycle",
-        toolName,
-        consecutiveCount: needed,
-        details: `cycle detected: [${pattern.join(" → ")}] repeated ${this.config.cycleRepetitions} times.`,
-      };
+    if (!isCycle) return null;
+
+    // Phase 2: Argument confirmation (skip if threshold is 0)
+    if (this.config.cycleSimilarityThreshold > 0) {
+      for (let pos = 0; pos < this.config.cycleLength; pos++) {
+        for (let rep = 1; rep < this.config.cycleRepetitions; rep++) {
+          const baseSig = tail[pos];
+          const repSig = tail[rep * this.config.cycleLength + pos];
+
+          const sim = jaccardSimilarity(
+            this.argsToTokens(baseSig.argsRaw),
+            this.argsToTokens(repSig.argsRaw),
+          );
+
+          if (sim < this.config.cycleSimilarityThreshold) {
+            return null; // Args differ — agent is exploring, not looping
+          }
+        }
+      }
     }
 
-    return null;
+    // Confirmed cycle
+    return {
+      type: "cycle",
+      toolName: signature.toolName,
+      consecutiveCount: needed,
+      details: `cycle detected: [${namePattern.join(" → ")}] repeated ${this.config.cycleRepetitions} times with similar arguments.`,
+    };
   }
 }

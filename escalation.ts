@@ -54,7 +54,7 @@ export class EscalationManager {
     if (this.shouldTerminate()) {
       return {
         level: "terminate",
-        reason: `🛑 Agent terminated: loop-guard detected persistent looping behavior after ${this.detectionCount} attempts.`,
+        reason: `🛑 Agent terminated: loop-guard detected persistent looping behavior after ${this.detectionCount} attempts.\nRun /loop-guard reset to continue.`,
       };
     }
 

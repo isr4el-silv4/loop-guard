@@ -12,6 +12,7 @@ export interface LoopGuardConfig {
   // ── Cycle Detection ──
   cycleLength: number;
   cycleRepetitions: number;
+  cycleSimilarityThreshold: number;
 
   // ── Thinking Loop Detection ──
   thinkingWindow: number;
@@ -39,6 +40,7 @@ const FIELD_DESCRIPTIONS: Record<keyof LoopGuardConfig, string> = {
   fuzzySimilarityThreshold: "Jaccard similarity threshold (0.0–1.0)",
   cycleLength: "Number of tool calls in a repeating cycle pattern to detect",
   cycleRepetitions: "Times a cycle must repeat before flagging",
+  cycleSimilarityThreshold: "Jaccard similarity threshold for cycle argument confirmation (0.0–1.0, set to 0 to disable)",
   thinkingWindow: "Number of recent thinking blocks to compare",
   thinkingSimilarityThreshold: "N-gram similarity threshold (0.0–1.0)",
   thinkingMinLength: "Minimum characters in a thinking block to analyze (shorter blocks are skipped)",
@@ -58,6 +60,7 @@ export const DEFAULT_CONFIG: LoopGuardConfig = {
   fuzzySimilarityThreshold: 0.85,
   cycleLength: 2,
   cycleRepetitions: 2,
+  cycleSimilarityThreshold: 0.7,
   thinkingWindow: 3,
   thinkingSimilarityThreshold: 0.8,
   thinkingMinLength: 100,
@@ -81,11 +84,38 @@ export function cloneConfig(config: LoopGuardConfig): LoopGuardConfig {
 export function registerConfigCommand(
   pi: ExtensionAPI,
   config: LoopGuardConfig,
+  onReset?: () => void,
 ): void {
+  const SUBCOMMANDS = [
+    { value: "reset", label: "reset", description: "Clear all loop-guard counters" },
+    { value: "config", label: "config", description: "Open config menu" },
+  ];
+
   pi.registerCommand("loop-guard", {
-    description: "Configure loop-guard detection settings",
-    handler: async (_args: string, ctx: ExtensionCommandContext) => {
-      await configMenu(ctx, config);
+    description: "Configure loop-guard detection settings or reset state",
+    getArgumentCompletions: (prefix: string) => {
+      const filtered = SUBCOMMANDS.filter((s) => s.value.startsWith(prefix));
+      return filtered.length > 0
+        ? filtered.map((s) => ({ value: s.value, label: `${s.value} — ${s.description}` }))
+        : SUBCOMMANDS.map((s) => ({ value: s.value, label: `${s.value} — ${s.description}` }));
+    },
+    handler: async (args: string, ctx: ExtensionCommandContext) => {
+      const trimmed = args.trim().toLowerCase();
+
+      if (trimmed === "reset") {
+        if (onReset) {
+          onReset();
+        }
+        ctx.ui.notify("loop-guard: reset — all counters cleared, agent may continue.", "info");
+        return;
+      }
+
+      if (trimmed === "config" || trimmed === "") {
+        await configMenu(ctx, config);
+        return;
+      }
+
+      ctx.ui.notify(`loop-guard: unknown subcommand "${trimmed}". Available: reset, config`, "warning");
     },
   });
 }

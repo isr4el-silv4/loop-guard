@@ -1,8 +1,10 @@
 import {
   DEFAULT_CONFIG,
   cloneConfig,
+  registerConfigCommand,
   type LoopGuardConfig,
 } from "../config";
+import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 
 describe("DEFAULT_CONFIG", () => {
   it("has correct default values", () => {
@@ -19,6 +21,45 @@ describe("DEFAULT_CONFIG", () => {
     expect(DEFAULT_CONFIG.blockAfter).toBe(2);
     expect(DEFAULT_CONFIG.blockBeforeTerminate).toBe(3);
     expect(DEFAULT_CONFIG.maxTurns).toBeNull();
+    expect(DEFAULT_CONFIG.cycleSimilarityThreshold).toBe(0.7);
+  });
+});
+
+describe("registerConfigCommand", () => {
+  it("provides argument completions for subcommands", () => {
+    const registered: {
+      description?: string;
+      getArgumentCompletions?: (prefix: string) => Array<{ value: string; label: string }> | null;
+      handler?: unknown;
+    } = {};
+
+    const pi = {
+      registerCommand: (_name: string, opts: typeof registered) => {
+        Object.assign(registered, opts);
+      },
+    } as unknown as ExtensionAPI;
+
+    registerConfigCommand(pi, DEFAULT_CONFIG);
+
+    expect(registered.getArgumentCompletions).toBeDefined();
+
+    // No prefix → return all subcommands
+    const all = registered.getArgumentCompletions!("");
+    expect(all).not.toBeNull();
+    const values = all!.map((item) => item.value);
+    expect(values).toContain("reset");
+    expect(values).toContain("config");
+
+    // Prefix filter
+    const filtered = registered.getArgumentCompletions!("res");
+    expect(filtered).not.toBeNull();
+    expect(filtered!.map((item) => item.value)).toContain("reset");
+    expect(filtered!.map((item) => item.value)).not.toContain("config");
+
+    // No match → return all
+    const noMatch = registered.getArgumentCompletions!("zzz");
+    expect(noMatch).not.toBeNull();
+    expect(noMatch!.map((item) => item.value)).toContain("reset");
   });
 });
 

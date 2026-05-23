@@ -15,8 +15,13 @@ export default function (pi: ExtensionAPI) {
   const resultTracker = new ResultTracker(config);
   const escalation = new EscalationManager(config);
 
-  // Register config command
-  registerConfigCommand(pi, config);
+  // Register config command with reset callback
+  registerConfigCommand(pi, config, () => {
+    toolTracker.reset();
+    thinkingTracker.reset();
+    resultTracker.reset();
+    escalation.reset();
+  });
 
   // ── Event Handlers ──
 
@@ -38,8 +43,14 @@ export default function (pi: ExtensionAPI) {
   pi.on("tool_call", async (event: { toolName: string; input: Record<string, unknown> }, ctx: ExtensionContext) => {
     // Check if agent should be terminated
     if (escalation.shouldTerminate()) {
-      ctx.ui.notify("loop-guard: terminating agent due to persistent loops", "error");
-      return { block: true, reason: "loop-guard: agent terminated due to persistent looping" };
+      ctx.ui.notify(
+        "loop-guard: agent terminated due to persistent looping. Run /loop-guard reset to continue.",
+        "error",
+      );
+      return {
+        block: true,
+        reason: "loop-guard: agent terminated due to persistent looping. Run /loop-guard reset to continue.",
+      };
     }
 
     // Check for tool call loops

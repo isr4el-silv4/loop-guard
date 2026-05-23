@@ -96,23 +96,105 @@ describe("ToolTracker", () => {
     it("detects a simple 2-call cycle (A, B, A, B)", () => {
       tracker.check("read", { path: "/a.txt" });
       tracker.check("bash", { command: "ls" });
-      tracker.check("read", { path: "/b.txt" });
+      tracker.check("read", { path: "/a.txt" });
       const result = tracker.check("bash", { command: "ls" });
       expect(result).not.toBeNull();
       expect(result?.type).toBe("cycle");
     });
 
-    it("does not detect cycle with only one repetition", () => {
-      // cycleRepetitions default is 2, so A,B,A,B needs to repeat twice
-      // A,B,A,B is one repetition of the pattern AB
-      // We need A,B,A,B,A,B for two repetitions
+    it("detects cycle with exactly two repetitions (A, B, A, B)", () => {
+      // cycleLength=2, cycleRepetitions=2 → need 4 calls minimum
+      // A,B,A,B = pattern AB repeated 2 times
       tracker.check("read", { path: "/a.txt" });
       tracker.check("bash", { command: "ls" });
-      tracker.check("read", { path: "/b.txt" });
+      tracker.check("read", { path: "/a.txt" });
       const result = tracker.check("bash", { command: "ls" });
-      // With cycleLength=2 and cycleRepetitions=2, we need 4 calls minimum
-      // A,B,A,B = pattern AB repeated 2 times
       expect(result?.type).toBe("cycle");
+    });
+
+    it("detects cycle when tool names and arguments repeat", () => {
+      const config = {
+        ...DEFAULT_CONFIG,
+        cycleSimilarityThreshold: 0.7,
+      };
+      const tracker = new ToolTracker(config);
+
+      tracker.check("grep", { pattern: "foo", path: "./src" });
+      tracker.check("read", { path: "auth.ts" });
+      tracker.check("grep", { pattern: "foo", path: "./src" });
+      const detection = tracker.check("read", { path: "auth.ts" });
+
+      expect(detection).not.toBeNull();
+      expect(detection?.type).toBe("cycle");
+    });
+
+    it("does not flag cycle when arguments differ across repetitions", () => {
+      const config = {
+        ...DEFAULT_CONFIG,
+        cycleSimilarityThreshold: 0.7,
+      };
+      const tracker = new ToolTracker(config);
+
+      tracker.check("grep", { pattern: "auth", path: "./src" });
+      tracker.check("read", { path: "login.ts" });
+      tracker.check("grep", { pattern: "session", path: "./lib" });
+      const detection = tracker.check("read", { path: "token.ts" });
+
+      expect(detection).toBeNull();
+    });
+
+    it("falls back to name-only detection when cycleSimilarityThreshold is 0", () => {
+      const config = {
+        ...DEFAULT_CONFIG,
+        cycleSimilarityThreshold: 0,
+      };
+      const tracker = new ToolTracker(config);
+
+      tracker.check("grep", { pattern: "auth", path: "./src" });
+      tracker.check("read", { path: "login.ts" });
+      tracker.check("grep", { pattern: "session", path: "./lib" });
+      const detection = tracker.check("read", { path: "token.ts" });
+
+      expect(detection).not.toBeNull();
+      expect(detection?.type).toBe("cycle");
+    });
+
+    it("flags cycle when arguments are similar above threshold", () => {
+      const config = {
+        ...DEFAULT_CONFIG,
+        cycleSimilarityThreshold: 0.7,
+      };
+      const tracker = new ToolTracker(config);
+
+      // Args differ slightly (offset 1 vs 50) but share most tokens
+      tracker.check("read", { path: "tool.ts", offset: 1, limit: 100 });
+      tracker.check("grep", { pattern: "bug", path: "./src", context: 3 });
+      tracker.check("read", { path: "tool.ts", offset: 50, limit: 100 });
+      const detection = tracker.check("grep", { pattern: "bug", path: "./src", context: 5 });
+
+      expect(detection).not.toBeNull();
+      expect(detection?.type).toBe("cycle");
+    });
+
+    it("detects longer cycles with multiple repetitions", () => {
+      const config = {
+        ...DEFAULT_CONFIG,
+        cycleLength: 3,
+        cycleRepetitions: 2,
+        cycleSimilarityThreshold: 0.7,
+      };
+      const tracker = new ToolTracker(config);
+
+      // Pattern: grep → read → edit
+      tracker.check("grep", { pattern: "foo" });
+      tracker.check("read", { path: "a.ts" });
+      tracker.check("edit", { path: "a.ts" });
+      tracker.check("grep", { pattern: "foo" });
+      tracker.check("read", { path: "a.ts" });
+      const detection = tracker.check("edit", { path: "a.ts" });
+
+      expect(detection).not.toBeNull();
+      expect(detection?.type).toBe("cycle");
     });
   });
 
@@ -147,7 +229,7 @@ describe("ToolTracker", () => {
     it("provides human-readable details for cycle detection", () => {
       tracker.check("read", { path: "/a.txt" });
       tracker.check("bash", { command: "ls" });
-      tracker.check("read", { path: "/b.txt" });
+      tracker.check("read", { path: "/a.txt" });
       const result = tracker.check("bash", { command: "ls" });
       if (result && result.type === "cycle") {
         expect(result.details).toContain("cycle");
