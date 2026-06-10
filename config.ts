@@ -35,6 +35,9 @@ export interface LoopGuardConfig {
   blockAfter: number;
   blockBeforeTerminate: number;
 
+  // ── Ignored Tools ──
+  ignoredTools: string[];
+
   // ── Safety Net ──
   maxTurns: number | null;
 }
@@ -62,6 +65,7 @@ const FIELD_DESCRIPTIONS: Record<keyof LoopGuardConfig, string> = {
   hintAfter: "Number of loop detections before injecting a system prompt hint",
   blockAfter: "Number of loop detections before blocking the tool call",
   blockBeforeTerminate: "Number of blocked calls (after blocking starts) before terminating the agent",
+  ignoredTools: "Tool names to exclude from loop detection entirely",
   maxTurns: "Hard turn limit (null = unlimited)",
 };
 
@@ -70,9 +74,9 @@ const FIELD_DESCRIPTIONS: Record<keyof LoopGuardConfig, string> = {
  */
 export const DEFAULT_CONFIG: LoopGuardConfig = {
   toolCallWindow: 5,
-  exactRepeatThreshold: 2,
+  exactRepeatThreshold: 4,
   fuzzySimilarityThreshold: 0.85,
-  cycleLength: 2,
+  cycleLength: 4,
   cycleRepetitions: 2,
   cycleSimilarityThreshold: 0.7,
   thinkingWindow: 3,
@@ -88,6 +92,7 @@ export const DEFAULT_CONFIG: LoopGuardConfig = {
   hintAfter: 1,
   blockAfter: 2,
   blockBeforeTerminate: 3,
+  ignoredTools: ["edit"],
   maxTurns: null,
 };
 
@@ -183,6 +188,14 @@ async function configMenu(ctx: ExtensionCommandContext, config: LoopGuardConfig)
  */
 function parseValue(field: keyof LoopGuardConfig, raw: string): LoopGuardConfig[keyof LoopGuardConfig] | undefined {
   const trimmed = raw.trim();
+
+  // ignoredTools accepts a comma-separated list or "none" / "null" for empty
+  if (field === "ignoredTools") {
+    if (trimmed.toLowerCase() === "null" || trimmed.toLowerCase() === "none" || trimmed === "") {
+      return [];
+    }
+    return trimmed.split(",").map((s) => s.trim()).filter(Boolean);
+  }
 
   // maxTurns accepts "null" / "none" or a number
   if (field === "maxTurns") {

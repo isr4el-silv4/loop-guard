@@ -71,6 +71,9 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.on("tool_call", async (event: { toolName: string; input: Record<string, unknown> }, ctx: ExtensionContext) => {
+    // Skip ignored tools entirely
+    if (config.ignoredTools.includes(event.toolName)) return;
+
     // Check if agent should be terminated
     if (escalation.shouldTerminate()) {
       ctx.ui.notify(
@@ -100,6 +103,9 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.on("tool_result", async (event: { toolName: string; content: unknown }, ctx: ExtensionContext) => {
+    // Skip ignored tools entirely
+    if (config.ignoredTools.includes(event.toolName)) return;
+
     const resultText = extractResultText(event.content);
     const detection = resultTracker.check(event.toolName, resultText);
     if (detection) {
