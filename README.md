@@ -1,5 +1,7 @@
 # loop-guard
 
+![loop-guard](https://raw.githubusercontent.com/isr4el-silv4/loop-guard/master/screenshot.jpeg)
+
 Pi extension that detects and prevents LLM looping behavior in real-time across tool calls, thinking blocks, and streaming output.
 
 ## Why
