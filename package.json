@@ -1,6 +1,6 @@
 {
   "name": "@isr4el-silv4/loop-guard",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Pi extension that detects and prevents LLM loops in tool calls and reasoning",
   "license": "MIT",
   "author": "isr4el-silv4",
@@ -35,7 +35,7 @@
     "extensions": [
       "./index.ts"
     ],
-    "image": "https://raw.githubusercontent.com/isr4el-silv4/loop-guard/master/screenshot.jpeg"
+    "image": "https://i.postimg.cc/W1r0m9vF/loop-guard.jpg"
   },
   "peerDependencies": {
     "@earendil-works/pi-ai": "*",
