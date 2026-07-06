@@ -33,7 +33,7 @@ const HINT_LEVEL_2 =
 
 const HINT_BLOCK =
   "🚫 Blocked: Repeated loop detected. The same action has been attempted multiple times without progress.\n" +
-  "You must try a fundamentally different approach or conclude with the information available.";
+  "You MUST FINISH THIS RUN, ask the user to reset the counters and try a fundamentally different approach or conclude with the information available.";
 
 /**
  * Manage escalation state per detection type and generate corrective messages.

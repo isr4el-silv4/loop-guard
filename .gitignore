@@ -3,3 +3,5 @@ package-lock.json
 *.orig
 plan-*.md
 plan.md
+.npmrc
+.idea

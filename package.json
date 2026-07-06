@@ -1,9 +1,9 @@
 {
   "name": "@isr4el-silv4/loop-guard",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Pi extension that detects and prevents LLM loops in tool calls and reasoning",
-  "license": "MIT",
   "author": "isr4el-silv4",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/isr4el-silv4/loop-guard.git"
@@ -12,19 +12,9 @@
     "pi-package",
     "pi-extension",
     "pi",
-    "pi-coding-agent"
-  ],
-  "files": [
-    "config.ts",
-    "escalation.ts",
-    "index.ts",
-    "result-tracker.ts",
-    "similarity.ts",
-    "thinking-tracker.ts",
-    "tool-tracker.ts",
-    "screenshot.jpeg",
-    "README.md",
-    "LICENSE"
+    "pi-coding-agent",
+    "loop",
+    "repetition"
   ],
   "publishConfig": {
     "access": "public"
